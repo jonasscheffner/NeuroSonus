@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import librosa.display
 
 # --- PAGE CONFIGURATION ---
-st.set_page_config(page_title="VocalGuard AI", layout="centered")
+st.set_page_config(page_title="NeuroSonus AI", layout="centered")
 
 # --- TITLE AND INTRO ---
 st.title("🧠 NeuroSonus")
@@ -116,4 +116,4 @@ if uploaded_file is not None:
 
 # --- FOOTER ---
 st.markdown("---")
-st.caption("© 2026 VocalGuard Prototype - Internal Investor Build v0.2")
+st.caption("© 2026 NeuroSonus Prototype - Internal Investor Build v0.2")
