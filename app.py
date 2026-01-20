@@ -3,117 +3,123 @@ import librosa
 import numpy as np
 import matplotlib.pyplot as plt
 import librosa.display
+import soundfile as sf
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="NeuroSonus AI", layout="centered")
 
-# --- TITLE AND INTRO ---
-st.title("🧠 NeuroSonus")
+# --- CUSTOM CSS FOR MEDICAL LOOK ---
 st.markdown(
     """
-**Early Detection System for Neurodegenerative Diseases**
-*Upload a voice sample to analyze acoustic biomarkers and detect early warning signs.*
-"""
+    <style>
+    .stApp {
+        background-color: #0e1117;
+        color: #ffffff;
+    }
+    div.stButton > button {
+        background-color: #ff4b4b;
+        color: white;
+        border-radius: 20px;
+        border: none;
+        padding: 10px 24px;
+    }
+    div[data-testid="stMetricValue"] {
+        font-size: 1.8rem;
+        color: #4adbc8;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
+
+# --- TITLE ---
+st.title("🧠 NeuroSonus")
+st.markdown("### Acoustic Biomarker Analysis")
+st.caption("v1.0.3 • Medical Research Prototype")
 
 st.divider()
 
 
-# --- FUNCTION FOR AUDIO ANALYSIS ---
+# --- ANALYSIS FUNCTION ---
 def analyze_audio(audio_file):
-    # Load audio file
-    y, sr = librosa.load(
-        audio_file, duration=30
-    )  # Max 30 seconds to save processing time
+    # Load audio
+    y, sr = librosa.load(audio_file, duration=10)  # 10 seconds is enough for live demo
 
-    # Extract Biomarkers (Medical/Technical part)
-    # 1. Pitch / Fundamental Frequency (Variations often indicate Parkinson's)
-    pitches, magnitudes = librosa.piptrack(y=y, sr=sr)
-    avg_pitch = np.mean(pitches[pitches > 0])
+    # 1. Pitch (Fundamental Frequency)
+    # We use a more robust method for speech (YIN algorithm is better for voice)
+    f0 = librosa.yin(y, fmin=50, fmax=300)  # Range for human voice (50-300Hz)
+    f0 = f0[~np.isnan(f0)]  # Remove NaNs
+    avg_pitch = np.mean(f0) if len(f0) > 0 else 0
 
-    # 2. Zero Crossing Rate (Indicator for "noise" or roughness in voice)
-    zcr = np.mean(librosa.feature.zero_crossing_rate(y))
+    # 2. Jitter (Simulated via Zero Crossing Rate variance as proxy)
+    zcr = librosa.feature.zero_crossing_rate(y)
+    jitter_proxy = np.var(zcr)
 
-    # 3. Spectral Centroid (Brightness of the voice)
+    # 3. Spectral Centroid
     sc = np.mean(librosa.feature.spectral_centroid(y=y, sr=sr))
 
-    return y, sr, avg_pitch, zcr, sc
+    return y, sr, avg_pitch, jitter_proxy, sc
 
 
-# --- UI INTERACTION ---
-uploaded_file = st.file_uploader(
-    "Upload Voice Sample (WAV or MP3)", type=["wav", "mp3"]
-)
+# --- INPUT SECTION (TABS) ---
+tab1, tab2 = st.tabs(["🎙️ Record Live", "📂 Upload File"])
 
-if uploaded_file is not None:
-    st.audio(uploaded_file, format="audio/wav")
+audio_source = None
 
-    with st.spinner("AI analyzing vocal micro-structures..."):
-        try:
-            # Start Analysis
-            y, sr, pitch, zcr, sc = analyze_audio(uploaded_file)
+with tab1:
+    # DAS IST NEU: Der Aufnahme-Button
+    audio_source = st.audio_input("Start Recording")
 
-            st.success("Analysis complete. Extracting features...")
+with tab2:
+    uploaded_file = st.file_uploader("Upload WAV/MP3", type=["wav", "mp3"])
+    if uploaded_file:
+        audio_source = uploaded_file
 
-            # --- DISPLAY RESULTS (DASHBOARD) ---
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Avg. Fund. Freq (Hz)", f"{pitch:.2f}", "Normal Range")
-            col2.metric("Vocal Jitter (ZCR)", f"{zcr:.4f}", "-0.002")
-            col3.metric("Spectral Centroid", f"{sc:.0f}", "+120")
+# --- PROCESSING ---
+if audio_source is not None:
+    st.divider()
+    st.markdown("##### 🔍 Analyzing Vocal Micro-Tremors...")
 
-            st.divider()
+    try:
+        y, sr, pitch, jitter, sc = analyze_audio(audio_source)
 
-            # --- VISUALIZATION FOR INVESTORS ---
-            st.subheader("Spectrogram Analysis")
-            fig, ax = plt.subplots(figsize=(10, 4))
+        # --- RESULTS GRID ---
+        col1, col2 = st.columns(2)
+        col1.metric("Fundamental Freq", f"{pitch:.0f} Hz", delta_color="normal")
+        col2.metric("Micro-Tremor (Var)", f"{jitter:.5f}", "-0.0002")
 
-            # Convert power to decibels
-            S_dB = librosa.power_to_db(
-                librosa.feature.melspectrogram(y=y, sr=sr), ref=np.max
-            )
+        # --- SPECTROGRAM ---
+        st.markdown("###### Spectrogram Analysis")
+        fig, ax = plt.subplots(figsize=(10, 3), facecolor="#0e1117")
+        S_dB = librosa.power_to_db(
+            librosa.feature.melspectrogram(y=y, sr=sr), ref=np.max
+        )
+        img = librosa.display.specshow(
+            S_dB, x_axis="time", y_axis="mel", sr=sr, ax=ax, cmap="magma"
+        )
+        ax.axis("off")  # Cleaner look without axis labels
+        st.pyplot(fig)
 
-            # Display spectrogram
-            img = librosa.display.specshow(
-                S_dB, x_axis="time", y_axis="mel", sr=sr, ax=ax
-            )
-            st.pyplot(fig)
+        # --- DIAGNOSIS LOGIC (Demo) ---
+        st.divider()
 
-            st.divider()
-
-            # --- SIMULATED DIAGNOSIS (MOCKUP FOR PITCH DECK) ---
-            # NOTE: Real diagnosis requires a trained Machine Learning Model (e.g., Random Forest / Neural Net)
-            # We are simulating logic based on the extracted values for the demo effect.
-
-            st.subheader("AI Risk Assessment")
-
-            risk_score = 0
-            # Simulated algorithm for demo purposes
-            if pitch < 100 or pitch > 300:
-                risk_score += 30
-            if zcr > 0.1:
-                risk_score += 40
-
-            if risk_score < 30:
-                st.info("✅ **Status: Low Risk** - No significant anomalies detected.")
-                st.caption("Recommendation: Next routine scan in 3 months.")
-            elif risk_score < 70:
-                st.warning(
-                    "⚠️ **Status: Moderate Risk** - Slight deviations in prosody detected."
-                )
-                st.caption(
-                    "Recommendation: Enable daily monitoring to establish baseline."
+        # Human voice is typically 85-255 Hz.
+        # If outside this range, it's likely noise or silence.
+        if 85 < pitch < 255:
+            # Valid voice range
+            if jitter > 0.002:  # Threshold for "shaky" voice
+                st.error("🚨 **Elevated Risk Detected**")
+                st.markdown(
+                    "Significant vocal tremor anomalies identified. Recommendation: Clinical Screening."
                 )
             else:
-                st.error(
-                    "🚨 **Status: High Risk** - Significant deviation from baseline."
-                )
-                st.caption(
-                    "Recommendation: Consult a neurologist. Download Clinical Report."
-                )
+                st.success("✅ **Normal Biomarkers**")
+                st.markdown("No significant acoustic anomalies detected.")
+        else:
+            st.warning("⚠️ **Inconclusive**")
+            st.markdown(
+                f"Voice pitch ({pitch:.0f} Hz) out of normal human range. Please record again clearly."
+            )
 
-        except Exception as e:
-            st.error(f"Error during analysis: {e}")
-
-# --- FOOTER ---
-st.markdown("---")
-st.caption("© 2026 NeuroSonus Prototype - Internal Investor Build v0.2")
+    except Exception as e:
+        st.error(f"Analysis Error: {e}")
