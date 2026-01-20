@@ -107,7 +107,7 @@ if audio_source is not None:
         # If outside this range, it's likely noise or silence.
         if 85 < pitch < 255:
             # Valid voice range
-            if jitter > 0.002:  # Threshold for "shaky" voice
+            if jitter > 0.012:  # Threshold for "shaky" voice
                 st.error("🚨 **Elevated Risk Detected**")
                 st.markdown(
                     "Significant vocal tremor anomalies identified. Recommendation: Clinical Screening."
