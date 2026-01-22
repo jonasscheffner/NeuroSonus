@@ -9,43 +9,20 @@ import soundfile as sf
 st.set_page_config(page_title="NeuroSonus AI", layout="centered")
 
 # --- CUSTOM CSS ---
+# Reverted to stable CSS. Toolbar remains visible to prevent flickering.
 st.markdown(
     """
     <style>
-    /* 1. Force Dark Background */
+    /* Main Background Color */
     .stApp {
         background-color: #0e1117;
         color: #ffffff;
     }
     
-    /* 2. BRUTAL REMOVAL of all UI elements */
+    /* Hide only the footer (usually stable) */
+    footer {visibility: hidden;}
     
-    /* Hides the top hamburger menu and header completely */
-    header[data-testid="stHeader"] {
-        display: none !important;
-    }
-    
-    /* Hides the "Made with Streamlit" footer */
-    footer {
-        display: none !important;
-    }
-    
-    /* Hides the bottom-right "Viewer Badge" (Your GitHub Icon) */
-    div[data-testid="stStatusWidget"] {
-        display: none !important;
-    }
-    
-    /* Hides the top-right Toolbar options */
-    div[data-testid="stToolbar"] {
-        display: none !important;
-    }
-    
-    /* Hides the colorful line at the very top */
-    div[data-testid="stDecoration"] {
-        display: none !important;
-    }
-
-    /* 3. Styling for your specific elements */
+    /* Button Styling */
     div.stButton > button {
         background-color: #ff4b4b;
         color: white;
@@ -53,6 +30,8 @@ st.markdown(
         border: none;
         padding: 10px 24px;
     }
+    
+    /* Metric Styling */
     div[data-testid="stMetricValue"] {
         font-size: 1.8rem;
         color: #4adbc8;
@@ -65,27 +44,27 @@ st.markdown(
 # --- TITLE ---
 st.title("🧠 NeuroSonus")
 st.markdown("### Acoustic Biomarker Analysis")
-st.caption("v1.0.6 • Micro-Tremor Variance Algorithm")
+st.caption("v1.0.7 • Micro-Tremor Variance Algorithm")
 
 st.divider()
 
 
 # --- ANALYSIS FUNCTION ---
 def analyze_audio(audio_file):
-    # Load audio (10 seconds max for performance)
+    # Load audio (max 10 seconds)
     y, sr = librosa.load(audio_file, duration=10)
 
-    # 1. Pitch Detection (YIN) for display purposes only
+    # 1. Pitch Detection (for display)
     f0 = librosa.yin(y, fmin=60, fmax=400)
     f0 = f0[~np.isnan(f0)]
     avg_pitch = np.mean(f0) if len(f0) > 0 else 0
 
     # 2. Micro-Tremor / Jitter Variance
-    # Measures the "Roughness" or variance in the signal structure (Zero Crossing Rate).
+    # Measures the "Roughness" or variance in the signal structure.
     zcr = librosa.feature.zero_crossing_rate(y)
     zcr_var = np.var(zcr)
 
-    # SCALING: Multiply by 10,000 to get readable scores (0-200 scale)
+    # SCALING: Multiply by 10,000 for readable scores (0-200 range)
     tremor_score = zcr_var * 10000
 
     return y, sr, avg_pitch, tremor_score
@@ -119,7 +98,7 @@ if audio_source is not None:
 
         # --- SPECTROGRAM ---
         st.markdown("###### Spectrogram Analysis")
-        # Create dark figure to match app theme
+        # Dark figure background
         fig, ax = plt.subplots(figsize=(10, 3), facecolor="#0e1117")
         S_dB = librosa.power_to_db(
             librosa.feature.melspectrogram(y=y, sr=sr), ref=np.max
@@ -134,8 +113,7 @@ if audio_source is not None:
         st.divider()
 
         # CALIBRATION:
-        # Score < 85: Green (Healthy sustained tone OR Normal smooth speech)
-        # Score > 85: Red (Rough voice, stuttering, heavy tremor, vocal fry)
+        # Threshold at 85.0 (Safe for normal reading, sensitive to tremors)
         threshold = 85.0
 
         if 50 < pitch < 400:
