@@ -8,7 +8,7 @@ import soundfile as sf
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="NeuroSonus AI", layout="centered")
 
-# --- CUSTOM CSS FOR MEDICAL LOOK ---
+# --- CUSTOM CSS ---
 st.markdown(
     """
     <style>
@@ -35,7 +35,7 @@ st.markdown(
 # --- TITLE ---
 st.title("🧠 NeuroSonus")
 st.markdown("### Acoustic Biomarker Analysis")
-st.caption("v1.0.4 • Medical Research Prototype")
+st.caption("v1.0.5 • Tremor Stability Algorithm")
 
 st.divider()
 
@@ -45,22 +45,28 @@ def analyze_audio(audio_file):
     # Load audio
     y, sr = librosa.load(audio_file, duration=10)
 
-    # 1. Pitch (Fundamental Frequency)
-    # Using YIN algorithm for robust pitch detection
-    f0 = librosa.yin(y, fmin=50, fmax=300)
+    # 1. Pitch Detection (YIN)
+    f0 = librosa.yin(y, fmin=60, fmax=400)
     f0 = f0[~np.isnan(f0)]
-    avg_pitch = np.mean(f0) if len(f0) > 0 else 0
 
-    # 2. Jitter / Micro-Tremor (Scaled for Demo)
-    # We measure the variance of the Zero Crossing Rate.
-    # We multiply by 1000 to make the numbers easier to read for investors (Score 0-100)
-    zcr = librosa.feature.zero_crossing_rate(y)
-    jitter_score = np.var(zcr) * 1000
+    if len(f0) > 0:
+        avg_pitch = np.mean(f0)
 
-    return y, sr, avg_pitch, jitter_score
+        # NEW: Pitch Standard Deviation (Measures pitch instability)
+        # A steady "Aaaaa" is stable (low value).
+        # A singing voice or tremor is unstable (high value).
+        pitch_std = np.std(f0)
+
+        # We use this as our proxy for the "Tremor Instability Score"
+        tremor_score = pitch_std
+    else:
+        avg_pitch = 0
+        tremor_score = 0
+
+    return y, sr, avg_pitch, tremor_score
 
 
-# --- INPUT SECTION (TABS) ---
+# --- INPUT SECTION ---
 tab1, tab2 = st.tabs(["🎙️ Record Live", "📂 Upload File"])
 
 audio_source = None
@@ -76,16 +82,15 @@ with tab2:
 # --- PROCESSING ---
 if audio_source is not None:
     st.divider()
-    st.markdown("##### 🔍 Analyzing Vocal Micro-Tremors...")
+    st.markdown("##### 🔍 Analyzing Pitch Stability...")
 
     try:
-        y, sr, pitch, jitter_score = analyze_audio(audio_source)
+        y, sr, pitch, score = analyze_audio(audio_source)
 
         # --- RESULTS GRID ---
         col1, col2 = st.columns(2)
         col1.metric("Fundamental Freq", f"{pitch:.0f} Hz", delta_color="normal")
-        # Display the new "Score" instead of raw variance
-        col2.metric("Tremor Score", f"{jitter_score:.2f}", "-0.5")
+        col2.metric("Tremor Instability", f"{score:.2f}", "-1.0")
 
         # --- SPECTROGRAM ---
         st.markdown("###### Spectrogram Analysis")
@@ -99,25 +104,29 @@ if audio_source is not None:
         ax.axis("off")
         st.pyplot(fig)
 
-        # --- DIAGNOSIS LOGIC (Calibrated for Demo) ---
+        # --- DIAGNOSIS LOGIC (Stability Based) ---
         st.divider()
 
-        # Threshold Logic:
-        # Healthy voice (monotone) usually scores between 1.0 and 8.0
-        # "Sick" voice (erratic/stutter) usually scores > 10.0
+        # LOGIC:
+        # Monotone (Aaaa) -> Score usually below 5.0 -> GREEN
+        # Unstable (Singing/Tremor) -> Score usually above 10.0 -> RED
 
-        if 50 < pitch < 300:
-            if jitter_score > 5.0:  # Threshold
+        threshold = 8.0  # Threshold set to 8.0 to differentiate healthy/unstable
+
+        if 50 < pitch < 400:
+            if score > threshold:
                 st.error("🚨 **Elevated Risk Detected**")
                 st.markdown(
-                    "High tremor variance detected. Recommendation: Clinical Screening."
+                    f"High Pitch Instability detected (Score: {score:.1f}). Recommendation: Clinical Screening."
                 )
             else:
                 st.success("✅ **Normal Biomarkers**")
-                st.markdown("Tremor score within healthy range.")
+                st.markdown(
+                    f"Voice stability within healthy range (Score: {score:.1f})."
+                )
         else:
             st.warning("⚠️ **Inconclusive**")
-            st.markdown(f"Voice pitch ({pitch:.0f} Hz) irregular. Please record again.")
+            st.markdown("Audio signal unclear or no voice detected.")
 
     except Exception as e:
         st.error(f"Analysis Error: {e}")
