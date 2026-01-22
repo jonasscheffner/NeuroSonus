@@ -107,7 +107,7 @@ if audio_source is not None:
         # "Sick" voice (erratic/stutter) usually scores > 10.0
 
         if 50 < pitch < 300:
-            if jitter_score > 12.0:  # Threshold set to 12.0
+            if jitter_score > 5.0:  # Threshold
                 st.error("🚨 **Elevated Risk Detected**")
                 st.markdown(
                     "High tremor variance detected. Recommendation: Clinical Screening."
