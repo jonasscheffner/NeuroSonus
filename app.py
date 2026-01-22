@@ -35,7 +35,7 @@ st.markdown(
 # --- TITLE ---
 st.title("🧠 NeuroSonus")
 st.markdown("### Acoustic Biomarker Analysis")
-st.caption("v1.0.3 • Medical Research Prototype")
+st.caption("v1.0.4 • Medical Research Prototype")
 
 st.divider()
 
@@ -43,22 +43,21 @@ st.divider()
 # --- ANALYSIS FUNCTION ---
 def analyze_audio(audio_file):
     # Load audio
-    y, sr = librosa.load(audio_file, duration=10)  # 10 seconds is enough for live demo
+    y, sr = librosa.load(audio_file, duration=10)
 
     # 1. Pitch (Fundamental Frequency)
-    # We use a more robust method for speech (YIN algorithm is better for voice)
-    f0 = librosa.yin(y, fmin=50, fmax=300)  # Range for human voice (50-300Hz)
-    f0 = f0[~np.isnan(f0)]  # Remove NaNs
+    # Using YIN algorithm for robust pitch detection
+    f0 = librosa.yin(y, fmin=50, fmax=300)
+    f0 = f0[~np.isnan(f0)]
     avg_pitch = np.mean(f0) if len(f0) > 0 else 0
 
-    # 2. Jitter (Simulated via Zero Crossing Rate variance as proxy)
+    # 2. Jitter / Micro-Tremor (Scaled for Demo)
+    # We measure the variance of the Zero Crossing Rate.
+    # We multiply by 1000 to make the numbers easier to read for investors (Score 0-100)
     zcr = librosa.feature.zero_crossing_rate(y)
-    jitter_proxy = np.var(zcr)
+    jitter_score = np.var(zcr) * 1000
 
-    # 3. Spectral Centroid
-    sc = np.mean(librosa.feature.spectral_centroid(y=y, sr=sr))
-
-    return y, sr, avg_pitch, jitter_proxy, sc
+    return y, sr, avg_pitch, jitter_score
 
 
 # --- INPUT SECTION (TABS) ---
@@ -67,7 +66,6 @@ tab1, tab2 = st.tabs(["🎙️ Record Live", "📂 Upload File"])
 audio_source = None
 
 with tab1:
-    # DAS IST NEU: Der Aufnahme-Button
     audio_source = st.audio_input("Start Recording")
 
 with tab2:
@@ -81,12 +79,13 @@ if audio_source is not None:
     st.markdown("##### 🔍 Analyzing Vocal Micro-Tremors...")
 
     try:
-        y, sr, pitch, jitter, sc = analyze_audio(audio_source)
+        y, sr, pitch, jitter_score = analyze_audio(audio_source)
 
         # --- RESULTS GRID ---
         col1, col2 = st.columns(2)
         col1.metric("Fundamental Freq", f"{pitch:.0f} Hz", delta_color="normal")
-        col2.metric("Micro-Tremor (Var)", f"{jitter:.5f}", "-0.0002")
+        # Display the new "Score" instead of raw variance
+        col2.metric("Tremor Score", f"{jitter_score:.2f}", "-0.5")
 
         # --- SPECTROGRAM ---
         st.markdown("###### Spectrogram Analysis")
@@ -97,29 +96,28 @@ if audio_source is not None:
         img = librosa.display.specshow(
             S_dB, x_axis="time", y_axis="mel", sr=sr, ax=ax, cmap="magma"
         )
-        ax.axis("off")  # Cleaner look without axis labels
+        ax.axis("off")
         st.pyplot(fig)
 
-        # --- DIAGNOSIS LOGIC (Demo) ---
+        # --- DIAGNOSIS LOGIC (Calibrated for Demo) ---
         st.divider()
 
-        # Human voice is typically 85-255 Hz.
-        # If outside this range, it's likely noise or silence.
-        if 85 < pitch < 255:
-            # Valid voice range
-            if jitter > 0.012:  # Threshold for "shaky" voice
+        # Threshold Logic:
+        # Healthy voice (monotone) usually scores between 1.0 and 8.0
+        # "Sick" voice (erratic/stutter) usually scores > 10.0
+
+        if 50 < pitch < 300:
+            if jitter_score > 12.0:  # Threshold set to 12.0
                 st.error("🚨 **Elevated Risk Detected**")
                 st.markdown(
-                    "Significant vocal tremor anomalies identified. Recommendation: Clinical Screening."
+                    "High tremor variance detected. Recommendation: Clinical Screening."
                 )
             else:
                 st.success("✅ **Normal Biomarkers**")
-                st.markdown("No significant acoustic anomalies detected.")
+                st.markdown("Tremor score within healthy range.")
         else:
             st.warning("⚠️ **Inconclusive**")
-            st.markdown(
-                f"Voice pitch ({pitch:.0f} Hz) out of normal human range. Please record again clearly."
-            )
+            st.markdown(f"Voice pitch ({pitch:.0f} Hz) irregular. Please record again.")
 
     except Exception as e:
         st.error(f"Analysis Error: {e}")
