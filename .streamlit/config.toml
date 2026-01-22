@@ -9,3 +9,7 @@ textColor="#fafafa"
 headless = true
 enableCORS = false
 enableXsrfProtection = false
+
+[client]
+toolbarMode = "viewer"
+showErrorDetails = false

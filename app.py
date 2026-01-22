@@ -12,19 +12,40 @@ st.set_page_config(page_title="NeuroSonus AI", layout="centered")
 st.markdown(
     """
     <style>
-    /* Force Dark Background */
+    /* 1. Force Dark Background */
     .stApp {
         background-color: #0e1117;
         color: #ffffff;
     }
     
-    /* Hide Streamlit Header, Footer & Menu for App-Like Feel */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    div[data-testid="stToolbar"] {visibility: hidden;}
+    /* 2. BRUTAL REMOVAL of all UI elements */
     
-    /* Button Styling */
+    /* Hides the top hamburger menu and header completely */
+    header[data-testid="stHeader"] {
+        display: none !important;
+    }
+    
+    /* Hides the "Made with Streamlit" footer */
+    footer {
+        display: none !important;
+    }
+    
+    /* Hides the bottom-right "Viewer Badge" (Your GitHub Icon) */
+    div[data-testid="stStatusWidget"] {
+        display: none !important;
+    }
+    
+    /* Hides the top-right Toolbar options */
+    div[data-testid="stToolbar"] {
+        display: none !important;
+    }
+    
+    /* Hides the colorful line at the very top */
+    div[data-testid="stDecoration"] {
+        display: none !important;
+    }
+
+    /* 3. Styling for your specific elements */
     div.stButton > button {
         background-color: #ff4b4b;
         color: white;
@@ -32,8 +53,6 @@ st.markdown(
         border: none;
         padding: 10px 24px;
     }
-    
-    /* Metric Styling */
     div[data-testid="stMetricValue"] {
         font-size: 1.8rem;
         color: #4adbc8;
