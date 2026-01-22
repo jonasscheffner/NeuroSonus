@@ -12,10 +12,19 @@ st.set_page_config(page_title="NeuroSonus AI", layout="centered")
 st.markdown(
     """
     <style>
+    /* Force Dark Background */
     .stApp {
         background-color: #0e1117;
         color: #ffffff;
     }
+    
+    /* Hide Streamlit Header, Footer & Menu for App-Like Feel */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    div[data-testid="stToolbar"] {visibility: hidden;}
+    
+    /* Button Styling */
     div.stButton > button {
         background-color: #ff4b4b;
         color: white;
@@ -23,6 +32,8 @@ st.markdown(
         border: none;
         padding: 10px 24px;
     }
+    
+    /* Metric Styling */
     div[data-testid="stMetricValue"] {
         font-size: 1.8rem;
         color: #4adbc8;
@@ -42,24 +53,20 @@ st.divider()
 
 # --- ANALYSIS FUNCTION ---
 def analyze_audio(audio_file):
-    # Load audio
+    # Load audio (10 seconds max for performance)
     y, sr = librosa.load(audio_file, duration=10)
 
-    # 1. Pitch Detection (YIN) for display purposes
+    # 1. Pitch Detection (YIN) for display purposes only
     f0 = librosa.yin(y, fmin=60, fmax=400)
     f0 = f0[~np.isnan(f0)]
     avg_pitch = np.mean(f0) if len(f0) > 0 else 0
 
     # 2. Micro-Tremor / Jitter Variance
-    # Instead of Pitch Stability (which triggers on normal reading),
-    # we measure the "Roughness" or variance in the signal structure (Zero Crossing Rate).
+    # Measures the "Roughness" or variance in the signal structure (Zero Crossing Rate).
     zcr = librosa.feature.zero_crossing_rate(y)
     zcr_var = np.var(zcr)
 
-    # SCALING: We multiply by 10,000 to get readable scores (0-100 scale)
-    # Healthy "Ahhh": ~ 5-20
-    # Normal Reading: ~ 30-60
-    # Sick/Tremor:    ~ 100-200
+    # SCALING: Multiply by 10,000 to get readable scores (0-200 scale)
     tremor_score = zcr_var * 10000
 
     return y, sr, avg_pitch, tremor_score
@@ -93,6 +100,7 @@ if audio_source is not None:
 
         # --- SPECTROGRAM ---
         st.markdown("###### Spectrogram Analysis")
+        # Create dark figure to match app theme
         fig, ax = plt.subplots(figsize=(10, 3), facecolor="#0e1117")
         S_dB = librosa.power_to_db(
             librosa.feature.melspectrogram(y=y, sr=sr), ref=np.max
@@ -107,10 +115,9 @@ if audio_source is not None:
         st.divider()
 
         # CALIBRATION:
-        # Score < 80: Green (Healthy sustained tone OR Normal smooth speech)
-        # Score > 80: Red (Rough voice, stuttering, heavy tremor, vocal fry)
-
-        threshold = 80.0
+        # Score < 85: Green (Healthy sustained tone OR Normal smooth speech)
+        # Score > 85: Red (Rough voice, stuttering, heavy tremor, vocal fry)
+        threshold = 85.0
 
         if 50 < pitch < 400:
             if score > threshold:
