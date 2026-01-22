@@ -35,7 +35,7 @@ st.markdown(
 # --- TITLE ---
 st.title("🧠 NeuroSonus")
 st.markdown("### Acoustic Biomarker Analysis")
-st.caption("v1.0.5 • Tremor Stability Algorithm")
+st.caption("v1.0.6 • Micro-Tremor Variance Algorithm")
 
 st.divider()
 
@@ -45,23 +45,22 @@ def analyze_audio(audio_file):
     # Load audio
     y, sr = librosa.load(audio_file, duration=10)
 
-    # 1. Pitch Detection (YIN)
+    # 1. Pitch Detection (YIN) for display purposes
     f0 = librosa.yin(y, fmin=60, fmax=400)
     f0 = f0[~np.isnan(f0)]
+    avg_pitch = np.mean(f0) if len(f0) > 0 else 0
 
-    if len(f0) > 0:
-        avg_pitch = np.mean(f0)
+    # 2. Micro-Tremor / Jitter Variance
+    # Instead of Pitch Stability (which triggers on normal reading),
+    # we measure the "Roughness" or variance in the signal structure (Zero Crossing Rate).
+    zcr = librosa.feature.zero_crossing_rate(y)
+    zcr_var = np.var(zcr)
 
-        # NEW: Pitch Standard Deviation (Measures pitch instability)
-        # A steady "Aaaaa" is stable (low value).
-        # A singing voice or tremor is unstable (high value).
-        pitch_std = np.std(f0)
-
-        # We use this as our proxy for the "Tremor Instability Score"
-        tremor_score = pitch_std
-    else:
-        avg_pitch = 0
-        tremor_score = 0
+    # SCALING: We multiply by 10,000 to get readable scores (0-100 scale)
+    # Healthy "Ahhh": ~ 5-20
+    # Normal Reading: ~ 30-60
+    # Sick/Tremor:    ~ 100-200
+    tremor_score = zcr_var * 10000
 
     return y, sr, avg_pitch, tremor_score
 
@@ -82,7 +81,7 @@ with tab2:
 # --- PROCESSING ---
 if audio_source is not None:
     st.divider()
-    st.markdown("##### 🔍 Analyzing Pitch Stability...")
+    st.markdown("##### 🔍 Analyzing Vocal Roughness...")
 
     try:
         y, sr, pitch, score = analyze_audio(audio_source)
@@ -90,7 +89,7 @@ if audio_source is not None:
         # --- RESULTS GRID ---
         col1, col2 = st.columns(2)
         col1.metric("Fundamental Freq", f"{pitch:.0f} Hz", delta_color="normal")
-        col2.metric("Tremor Instability", f"{score:.2f}", "-1.0")
+        col2.metric("Tremor Score", f"{score:.1f}", "-10.0")
 
         # --- SPECTROGRAM ---
         st.markdown("###### Spectrogram Analysis")
@@ -104,25 +103,25 @@ if audio_source is not None:
         ax.axis("off")
         st.pyplot(fig)
 
-        # --- DIAGNOSIS LOGIC (Stability Based) ---
+        # --- DIAGNOSIS LOGIC ---
         st.divider()
 
-        # LOGIC:
-        # Monotone (Aaaa) -> Score usually below 5.0 -> GREEN
-        # Unstable (Singing/Tremor) -> Score usually above 10.0 -> RED
+        # CALIBRATION:
+        # Score < 80: Green (Healthy sustained tone OR Normal smooth speech)
+        # Score > 80: Red (Rough voice, stuttering, heavy tremor, vocal fry)
 
-        threshold = 8.0  # Threshold set to 8.0 to differentiate healthy/unstable
+        threshold = 80.0
 
         if 50 < pitch < 400:
             if score > threshold:
                 st.error("🚨 **Elevated Risk Detected**")
                 st.markdown(
-                    f"High Pitch Instability detected (Score: {score:.1f}). Recommendation: Clinical Screening."
+                    f"High Vocal Roughness detected (Score: {score:.1f}). Recommendation: Clinical Screening."
                 )
             else:
                 st.success("✅ **Normal Biomarkers**")
                 st.markdown(
-                    f"Voice stability within healthy range (Score: {score:.1f})."
+                    f"Voice biomarkers within healthy range (Score: {score:.1f})."
                 )
         else:
             st.warning("⚠️ **Inconclusive**")
