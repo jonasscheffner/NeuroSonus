@@ -114,7 +114,7 @@ if audio_source is not None:
 
         # CALIBRATION:
         # Threshold at 85.0 (Safe for normal reading, sensitive to tremors)
-        threshold = 85.0
+        threshold = 150.0
 
         if 50 < pitch < 400:
             if score > threshold:
